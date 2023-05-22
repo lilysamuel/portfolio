@@ -1,0 +1,88 @@
+---
+title: 'Math 308: Principal Component Analysis'
+author: "Lily Samuel"
+date: "2022-02-18"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Task:
+
+Perform a principal component analysis of this data using your preferred function. As part of this analysis, please be sure complete the following tasks:
+
+  - Report the eigenvalues for all 11 principal components.
+  
+  - For the first two principal components, plot and interpret components in terms of the original variables. In particular, explain which variables are most highly correlated with each of these two components and how these components are different from each other.
+  
+  - Choose the smallest number of principal components that you believe can be used to summarize the information from the data and justify your choice.
+      
+Solution:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r}
+library(tinytex)
+library(tidyverse)
+library(factoextra)
+library(FactoMineR)
+library(GGally)
+```
+
+
+```{r pressure, echo=FALSE}
+wine <- read_csv("/Users/lilysamuel/Desktop/red_wine_data.csv")
+head(wine)
+glimpse(wine)
+```
+```{r}
+wine_chem<-wine%>%select(-quality)
+head(wine_chem)
+```
+
+1) Eigenvalues:
+```{r}
+wine_PCA<-PCA(wine_chem,graph=FALSE)
+wine_PCA$eig[,"eigenvalue"]
+
+eigenvalues_wine<-as.data.frame(wine_PCA$eig) %>%
+ rownames_to_column(var="Component")
+eigenvalues_wine <- eigenvalues_wine %>%
+ mutate(Component=map_chr(Component,~str_split(.x," ")[[1]][2]),
+ Component_number=as.integer(Component),
+ Component=factor(Component_number))
+
+
+ggplot(eigenvalues_wine,aes(y=eigenvalue,x=Component_number,fill=Component)) +
+ geom_bar(stat="identity") + geom_line(aes(fill=NULL)) + geom_point() +ggtitle("Wine Data Eigenvalues")
+
+```
+
+2) Component Analysis:
+
+```{r}
+fviz_pca_biplot(wine_PCA,col.ind="pink",
+ fill.ind="pink",label="var",
+ alpha.ind=c(0.5))
+```
+
+```{r}
+round(wine_PCA$var$coord[,c(1:2)],2)
+```
+
+From the plot and the table above, we see that the first component mostly is a
+contrast between the pH level and the fixed acidity, citric acid and density values. These are the variables with the strongest correlations with the first component.
+
+The second component mostly depends on the free and total sulfur dioxide measures, which are contrasted mostly with the alcohol content, as these three variables are most strongly associated with the second component.
+
+
+3) Number of Components:
+
+```{r}
+wine_PCA$eig
+```
+We see that using an 80% cumulative variance rule, we would decide to use either 5 or 6 components depending on how strictly we wanted to use the cutoff.
+
