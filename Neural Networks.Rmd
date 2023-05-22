@@ -1,0 +1,182 @@
+---
+title: 'Math 208: Creating Neural Network Functions'
+author: "Lily Samuel"
+date: "2021-11-26"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(palmerpenguins)
+library(dplyr)
+library(neuralnet)
+library(tidyverse)
+penguins_example <- penguins %>% 
+                    drop_na %>% 
+                    mutate(sex=ifelse(sex=="female",1,0))
+```
+
+Task 1: 
+
+write a function that requires three arguments:
+
+  i. A data frame or tibble
+  
+  ii. A length 1 character vector indicating the name of the outcome column in the dataset.
+
+  iii. A character vector of unspecified length containing the names of the input features to be selected and scaled. and returns a new data set which contains a tibble containing only the outcome vector which should be renamed outcome and the scaled feature vectors, each of which has been scaled using the scale function.
+
+Solution:
+```{r}
+outcome_func<-function(x_df, outcome, input_vec){
+  outcome_1 <- x_df[,c(outcome, input_vec)] %>% mutate_at(~scale(.),.vars=vars(input_vec))
+  names(outcome_1)[names(outcome_1)== outcome] <- "outcome"
+  return(outcome_1)
+  }
+
+outcome_col<-c("sex")
+z_vect_cols<-c("body_mass_g","bill_length_mm")
+result_a<-outcome_func(penguins_example, outcome_col, z_vect_cols)
+head(result_a)
+
+```
+
+Task 2:
+
+Write a function to randomly split a data frame or tibble into Training and Test that requires two arguments:
+
+  i. A data frame or tibble
+  
+  ii. The percentage of the total number of rows that should be from training and returns a list which has two elements, one that is the Training data and the other is the Test data.
+
+Solution:
+```{r}
+split_data<-function(x_df, percentage){
+
+split_labels <- sample(c("Training","Test"),
+ prob=c(percentage,1-percentage), replace=T,
+ size=nrow(x_df))
+
+Training_sample <- x_df %>%
+ filter(split_labels=="Training")
+
+Test_sample <- x_df %>%
+ filter(split_labels=="Test")
+list(Training=Training_sample, Test=Test_sample)
+}
+result_b<-split_data(result_a,0.7)
+glimpse(result_b)
+head(result_b)
+```
+
+Task 3:
+
+Write a function that takes in the following arguments:
+
+  i. A data frame or tibble with a column named outcome and other columns that are all scaled feature vectors
+  
+  ii. A vector of integers that can be used as the hidden argument to the neuralnet function, i.e. a list of numbers of nodes of the hidden layers of a neural network to return a neuralnet object that is the result of running the neuralnet function on the data frame/tibble with the hidden nodes specified from the second argument and the following other arguments:
+  
+  - linear.output = FALSE,
+  - act.fct="logistic" 
+
+and using the outcome variable as the outcome in the formula argument
+
+```{r}
+fit_model<-function(x_df, hidden_nodes_vec){
+ neural_net = neuralnet(outcome~.,
+                        linear.output = FALSE,
+                        act.fct="logistic",
+                        data=x_df, 
+                        hidden=hidden_nodes_vec)
+ return(neural_net)
+}
+
+outcome<-c("sex")
+result_b[[1]]
+result_c<-fit_model(result_b[[1]], c(2,2))
+
+plot(result_c)
+```
+Task 4:
+
+Write a function that takes the following arguments:
+
+  i. A neuralnet object
+  
+  ii. A data frame/tibble containing Training Data
+  
+  iii. A data frame/tibble containing Test Data
+  
+and returns a vector containing the average training squared error and the average test squared error using the neuralnet object, where average squared error is as defined in the background section.
+
+```{r}
+run_training_test<-function(model_obj, Training, Test){
+
+train_predict <- predict(model_obj,newdata=Training)
+Training_error<-Training %>% 
+  mutate(train_error_sq=(outcome-train_predict)^2) %>%
+  summarize(Avg_Error_train=mean(train_error_sq))
+
+test_predict <- predict(model_obj,newdata=Test)
+Test_error<-Test%>% mutate(test_error_sq=(outcome-test_predict)^2) %>%
+  summarize(Avg_Error_test=mean(test_error_sq))
+
+c("Training_Error"=as.numeric(Training_error), "Test_Error"=as.numeric(Test_error))
+}
+
+run_training_test(result_c,result_b$Training,result_b$Test)
+```
+
+Task 5:
+
+Write a function that takes the following arguments:
+
+  i. A data frame or tibble
+  
+  ii. A length 1 character vector indicating the name of the outcome column in the dataset.
+  
+  iii. A character vector of unspecified length containing the names of the input features to be selected and scaled.
+  
+  iv. The percentage of the total number of rows in the data/frame or tibble that should be used in the training data.
+  
+and returns a tibble where each row contains the Average Training and Average Test squared error for fitting a two-layer neural network at all possible combinations of numbers of hidden nodes at each layer.
+
+Solution:
+```{r}
+final_func<-function(x_df, outcome, input_vec, percentage){
+ Results<-as_tibble(expand.grid(`First layer`=c(1,2,3),
+                                `Second layer`=c(1,2,3), 
+                                `Training error`=0, `Test error`=0))
+
+ scaled_data<-outcome_func(x_df,outcome,input_vec)
+ training_test_data<-split_data(scaled_data,percentage)
+
+ for(i in 1:9){
+ current_mod<-fit_model(training_test_data$Training,
+ hidden_nodes_vec=as.numeric(Results[i,c("First layer","Second layer")])
+)
+
+ error<-run_training_test(current_mod,
+ training_test_data$Training,
+ training_test_data$Test)
+
+ Results[i,c("Training error")]<-error[1]
+ Results[i,c("Test error")]<-error[2]
+ }
+ Results
+}
+
+set.seed(1)
+my_results<-final_func(penguins_example,
+                       "sex", 
+                       c("bill_length_mm","body_mass_g"), 
+                       0.7)
+my_results
+```
+

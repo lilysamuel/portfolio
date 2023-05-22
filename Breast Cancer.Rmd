@@ -1,0 +1,161 @@
+---
+title: 'Math 308: Breast Cancer Bivariate Correspondance and Multiple Correspondance Analysis'
+author: "Lily Samuel"
+date: "2022-04-05"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(knitr)
+library(systemfonts)
+library(tidyverse)
+library(ggpubr )
+library(FactoMineR)
+library(reshape)
+library(readr)
+library(kableExtra)
+library(factoextra)
+
+breast_cancer <- read_csv("/Users/lilysamuel/Desktop/breast_cancer_data.csv")
+head(breast_cancer)
+
+names(breast_cancer)<-c("RecEv","AgeGrp","Meno","Size","InvNodes", "NodeCaps","DegMal","Side","Quad","Irrad")
+breast_cancer<-breast_cancer %>% filter(Quad!="?",NodeCaps!="?")
+breast_cancer<-breast_cancer %>% mutate(AgeGrp=paste("AG",AgeGrp,sep=""),InvNodes=paste("IN",InvNodes,sep=""))
+head(breast_cancer) %>% kable(.) %>% kable_styling()
+```
+Task 1: 
+create a two-way contingency table of counts for this data.
+
+Solution:
+```{r}
+part_one<-breast_cancer %>% select(Quad,DegMal)
+head(part_one)
+```
+
+Task 2:
+Create ballon plots for the observed cell proportions and the expected cell proportions. Do
+you find visual evidence of depedence bewteen the quadrant and the degree of malignancy? 
+
+Solution:
+```{r}
+xtabs(~Quad+DegMal,data=part_one)
+```
+
+```{r}
+chisq_results<-chisq.test(xtabs(~Quad+DegMal,data=part_one))
+
+obs<-melt(chisq_results$observed)
+obs<-obs%>%mutate(DegMal=factor(DegMal))
+exp<-melt(chisq_results$expected)
+exp<-exp%>%mutate(DegMal=factor(DegMal))
+
+ggballoonplot(obs, label=FALSE, show.margine=F, main="Observed")
+ggballoonplot(exp, label=FALSE, show.margine=F, main="Expected")
+
+ggballoonplot(as.data.frame(t(chisq_results$observed/sum(chisq_results$observed)))) +
+ ggtitle("Observed proportions")
+
+ggballoonplot(as.data.frame(chisq_results$expected/sum(chisq_results$observed))) +
+ ggtitle("Expected proportions")
+
+ggballoonplot(as.data.frame(t(chisq_results$stdres))) +
+ ggtitle("Residuals")
+```
+Based on what we see here, there is not a large amount of visual evidence of dependence. 
+The residuals are also small, meaning only minor departures from dependence 
+would be observed when doing the correspondance analysis.
+
+Task 3:
+Conduct a correspondance anaylsis for this data, being sure to complete the following
+tasks:
+  - Report the table of eigenvalues for the 2 components and explain how many components you
+      think are sufficient to analyze the data.
+  - Generate a row and column points factor map for the first two dimensions of the correspondance
+      analysis (regardless of what your answer is to the first bullet point). Give separate interpretations
+      of each dimension with respect to the associations between column and row points.
+
+Solution:
+
+```{r}
+part_one_ac <- CA(xtabs(~Quad+DegMal,data=part_one))
+part_one_ac$eig %>% kable(.) %>% kable_styling()
+fviz_eig(part_one_ac)
+fviz_ca_biplot(part_one_ac)
+part_one_ac$row
+part_one_ac$col
+```
+We see that in general there is very little evidence of structured dependence in the table. We see that all of the
+coordinate values are very small for each dimension and the inertia values for all rows and columns are very
+small. The rows that primarily contribute to the first dimension are the central/left_up/right_low location rows
+(with left_up being contrasted with the other two). The second dimension is mostly dominated by
+left_up/right_low/right_up, but these are really small in magnitude. left_low is the only row which is better
+represented by the second dimension; the other four are better represented on the first dimension.
+For the columns, we see a similar pattern, with very small coordinate values and small inertias. The first
+dimension mostly focuses on the highest and lower degrees of malignancy (but in the same direction), without
+any contribution from themiddle. The second dimension is more of a contrast between the middle malignancy
+and the lowest/highest, but again the coordinate values are still quite low.
+In terms of dependence between rows and columns, the first dimension really associates right_low and central
+with DegMal=1,left_up with Deg_Mal 3 and the other rows/columns are not really indicated. The second
+dimension shows some structure, but the coordinate values are so low, it would really be considered noise
+(especially relative to the first component. )
+
+Tast 4:
+Conduct a correspondance anaylsis for this data, being sure to complete the following
+tasks:
+    - Report the table of eigenvalues for the first 5 components and explain how many components
+      you think are sufficient to analyze the data.
+    - Generate a factor map for the first two dimensions of the correspondance analysis (regardless of
+        what your answer is to the first bullet point). Give a summary of which levels of which variables
+        are most strongly associated with each of the first two dimensions and how you made your decisions.
+
+Solution:
+
+```{r}
+breast_cancer<-breast_cancer %>% mutate_all(~factor(.))
+```
+
+```{r}
+part_two_mca <- MCA(breast_cancer,graph=FALSE,ncp=5)
+part_two_mca$eig %>% kable(.) %>% kable_styling()
+fviz_eig(part_two_mca)
+fviz_mca_var(part_two_mca)
+fviz_mca_var(part_two_mca,choice = "var")
+```
+We see from this map that the first five factors explain relatively little of the variability ( (a bit less than 30% all
+combined, with a maximum of 8.6% for the first factor). Probably more than 5 would be necessary here to
+explain the dependence structure. If you were trying to choose a more parsimonious model, then 4 would be a
+reasonable choice due to the elbow, although you would need to be careful interpreting components that
+explain so little variability.
+We see that for the first dimension, the levels of the variables that contribute the most are related to the
+InvNodes,NodeCaps,DegMal, Irrad, and Recurrent Events. In each case of these variables, we see contrasts
+between opposite ends of the spectrum. For example, InvNodes 0-2 is contrasted with all of the rest. The
+second dimension is mostly driven by the Menopause and AgeGrp levels, in particular contrasting the older
+ages (all groups 50 and over) and gt40 menopausal with younger (all groups 49 and younger) and
+premenopausal.
+
+Task 5:
+
+```{r}
+part_two_mca_morecp <- MCA(breast_cancer,graph=FALSE,ncp=50)
+sort(round(part_two_mca_morecp$var$eta2[1,],2),decreasing=TRUE)
+```
+
+We see that the next largest eta2 value is 0.14 and it only appears on dimension 27. Therefore, the InvNodes,NodeCaps,DegMal and Irrad seeem to be most strongly associated to recurrent events. 
+
+We see that the more serious disease values (more than 2 InvNodes, NodeCaps, more serious DegMal, Irrad=yes) are all positive along, matching RecurrentEvents=yes, with corresponding negative values for the rest matching RecurrentEvents=no.
+
+
+
+
+
+
+
+
+

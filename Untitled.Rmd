@@ -1,0 +1,106 @@
+---
+title: "Math 208 H Index Function"
+Author: Lily Samuel
+date: "2021-12-23"
+output:
+  pdf_document: default
+  html_document: default
+---
+Task: 
+
+Find the top 10 directors in the dataset according the Hidden Gem Index (HG-H index) defined as the number of films, H, in the dataset that they have directed which have Hidden Gem Scores that are greater than or equal to H and produce them in a table with their associated HG-H index.
+
+Solution:
+
+```{r}
+library(tidyverse)
+library(utils)
+library(readr)
+library(dplyr)
+
+FlixGem <- read_csv("/Users/lilysamuel/Desktop/movie_data.csv")
+
+FlixGem <- FlixGem %>% drop_na
+
+FlixGem <- FlixGem %>% group_split('Series.or.Movie')
+
+print(FlixGem)
+
+class(FlixGem)
+
+FlixGem_Movies <- FlixGem[[1]]
+
+print(FlixGem_Movies)
+
+FlixGem_Movies%>%group_by(Runtime)%>%summarise(hidden_gem_score_avg= mean('Hidden.Gem.Score'))
+
+FlixGem_Movie <- separate_rows(FlixGem_Movies, 'Country Availability', sep=", ", convert =TRUE)
+
+class(FlixGem_Movies)
+```
+First, we subset to find a tibble that gives us a list of directors in the dataset, total movies they have directed, and hidden gem score average
+
+```{r}
+grouped_movies <-FlixGem_Movies %>% group_by(Director)
+print(grouped_movies)
+
+grouped_movies %>% summarise(total_movies_directed= n(),hidden_gem_score_avg = mean('Hidden.Gem.Score'))
+```
+
+Second, we create H index function
+
+```{r}
+h_index <- function(input){
+      
+    sorted_input <-sort(input, decreasing = F)
+    for (i in 1:length(sorted_input)){
+      
+      result <- length(sorted_input) - i +1
+      if (result <= sorted_input[[i]]){
+      return(result)
+    }
+    
+    }
+  
+  return(0)
+      
+}
+
+input_test_1<-(c(2,2,4,4,4,4,5)) #just a test
+
+print(h_index(input_test_1))
+```
+
+We see this function works because there are 5 characters in the vector equal to or greater than 4, therefore the H index should be 4. There test worked.
+
+Now, apply data to the H index function to get H index of directors that we want.
+
+```{r}
+x <- separate_rows(FlixGem[[1]],Director,sep=", ",convert =TRUE)
+class(x)
+
+the_director <- unique(x$Director)
+class(the_director)
+
+h_index_vect = c() 
+number = 0
+
+for (j in the_director){
+  number <- number+1
+  HG_scores <- x %>% filter(Director==j) %>% select(mean = 'Hidden.Gem.Score')
+  h_index_to_use <- h_index(HG_scores[[1]])
+  h_index_vect <- c(h_index_vect,h_index_to_use)
+  
+}
+
+print(tibble(the_director, director_H_index = h_index_vect) %>% slice_max(h_index_vect, n=10))
+```
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,76 @@
+---
+title: "Assignment 2"
+output: html_document
+---
+Question A)
+```{r}
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(dodge)
+
+heart <- read_csv("/Users/lilysamuel/Desktop/heart 2.csv")
+head(heart)
+
+ggplot(heart, aes(x=RestingBP, group=Sex,fill= Sex)) + geom_histogram(bins=20,col="black") + facet_wrap(~Sex)+ labs(x="Resting BP",y="Number of Patients",title="Association between sex and resting heart rate")
+```
+```{r}
+ggplot(heart, aes(x=Sex, y=RestingBP, fill=Sex)) + geom_boxplot()
+```
+
+Question B)
+
+```{r}
+ggplot(heart,aes(x=RestingECG,fill=ChestPainType)) + geom_bar() + labs(x="Resting ECG",y="Count",title="distribution of Chest Pain Type for each level of Resting ECG", fill="Chest Pain Type")
+
+ggplot(heart %>% count(ChestPainType,RestingECG) %>%
+    group_by(RestingECG) %>%
+    reframe(ChestPainType=ChestPainType,prop=n/sum(n)),
+  aes(y=prop,x=RestingECG,fill=ChestPainType)) +
+geom_bar(stat="identity")
+```
+
+Question C)
+```{r}
+set.seed(1)
+
+summary_table<-heart%>%mutate(ChestPainTypelmp=fct_explicit_na(ChestPainType))%>%group_by(Sex, ChestPainTypelmp, RestingECG)%>%count() %>% group_by(RestingECG) %>% mutate(prop = n/sum(n))
+summary_table %>% slice(sample(1:nrow(.), 15))
+```
+Question D)
+```{r}
+heart %>% group_by(ChestPainType) %>% summarise_at(vars(RestingBP,Cholesterol,FastingBS,MaxHR),list(mean=mean, median=median, IQR=IQR)) %>% pivot_longer(cols=c(ends_with("mean"),ends_with("median"),ends_with("IQR")), names_to="Var_Statistic")%>%pivot_wider(id_cols="Var_Statistic",names_from="ChestPainType")
+```
+Question E)
+```{r}
+p1<-ggplot(heart,aes(x=RestingBP, group=HeartDisease)) + geom_histogram(bns=25, col="black", position = "dodge") + labs(title = "Asssociation between Resting BP and Heart Disease")
+
+p2<-ggplot(heart,aes(x=MaxHR, group=HeartDisease)) + geom_histogram(bns=25, col="black", position = "dodge") + labs(title = "Asssociation between Max HR and Heart Disease")
+
+p3<-ggplot(heart,aes(x=Cholesterol, group=HeartDisease)) + geom_histogram(bns=25, col="black", position = "dodge") + labs(title = "Asssociation between Cholesterol and Heart Disease")
+
+p4<-ggplot(heart,aes(x=FastingBS, group=HeartDisease)) + geom_histogram(bns=25, col="black", position = "dodge") + labs(title ="Asssociation between Resting BP and Heart Disease")
+
+grid.arrange(p1,p2,p3,p4)
+
+```
+Question F)
+```{r}
+ggplot(heart, aes(x=RestingBP,y=MaxHR)) + geom_density_2d()+ geom_point(alpha=0.5)+ ggtitle("2D contour plot")+theme(legend.position = "none")
+
+ggplot(heart, aes(x=RestingBP,y=MaxHR)) + geom_bin2d() + ggtitle("2D histogram")
+```
+
+Question G)
+
+```{r}
+ggplot(heart, aes(x=RestingBP,y=MaxHR)) + geom_density2d()+geom_point(alpha=0.5,aes(col=ChestPainType))+facet_grid(HeartDisease~.)+ggtitle("2d Contour Plot for Heart Disease") + theme(legend.position="none")
+```
+```{r}
+ggplot(heart, aes(x=RestingBP,y=MaxHR)) + geom_density2d()+geom_point(alpha=0.5,aes(col=ChestPainType))+facet_grid(ChestPainType~.)+ggtitle("2d Contour Plot for Chest Pain Type") + theme(legend.position="none")
+```
+
+
+
+
+
