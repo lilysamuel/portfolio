@@ -9,13 +9,14 @@ from categories
 
 select contact_name, address, city
 from customers
-where Country NOT IN ('United States','Mexico', 'Canada')
+where Country NOT IN ('USA','Mexico', 'Canada')
 
--- Q3. Show order date, shipped date, customer id, and Freight of all orders placed on July 14th, 2017.
+-- Q3. Show order date, shipped date, customer id, and Freight of all orders placed in 2017.
 
 select order_date, shipped_date, customer_id, freight
 from orders
-where order_date = '2017-07-14';
+where order_date >= '2017-01-01' 
+       and order_date < '2018-01-01'
 
 -- Q4. Show the Product Name, Company Name, Category Name from the products, suppliers, and categories table
 
